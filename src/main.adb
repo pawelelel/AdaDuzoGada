@@ -157,6 +157,13 @@ procedure Simulation is
          end loop;
       end Setup_Variables;
 
+
+
+
+
+
+
+      -- TODO: To trzeba zoptymalizowac
       function Can_Accept(Product: Producer_Type) return Boolean is
       begin
          if In_Storage >= Storage_Capacity then
@@ -166,6 +173,7 @@ procedure Simulation is
          end if;
       end Can_Accept;
 
+      -- TODO: To trzeba zoptymalizowac
       function Can_Deliver(Assembly: Assembly_Type) return Boolean is
       begin
          for W in Producer_Type loop
@@ -175,6 +183,14 @@ procedure Simulation is
          end loop;
          return True;
       end Can_Deliver;
+
+
+
+
+
+
+
+
 
       procedure Storage_Contents is
       begin
@@ -189,6 +205,14 @@ procedure Simulation is
    begin
       Put_Line(ESC & "[91m" & "B: Buffer started" & ESC & "[0m");
       Setup_Variables;
+
+
+
+
+
+
+
+      -- TODO: Ulepszyc petle
       loop
          accept Take(Product: in Producer_Type; Number: in Integer) do
             if Can_Accept(Product) then
@@ -221,6 +245,19 @@ procedure Simulation is
          Storage_Contents;
 
       end loop;
+
+
+
+
+
+
+
+
+
+
+
+
+
    end Buffer;
 
 
