@@ -165,13 +165,27 @@ procedure Simulation is
 
       -- TODO: To trzeba zoptymalizowac
       function Can_Accept(Product: Producer_Type) return Boolean is
+         Total_Demand: Integer := 0;
       begin
          if In_Storage >= Storage_Capacity then
             return False;
-         else
-            return True;
          end if;
+
+         for A in Assembly_Type loop
+            Total_Demand := Total_Demand + Assembly_Content(A, Product);
+         end loop;
+
+         if Total_Demand = 0 then
+            return False;
+         end if;
+
+         if Storage(Product) >= Max_Assembly_Content(Product) * 2 then
+            return False;
+         end if;
+
+         return True;
       end Can_Accept;
+
 
       -- TODO: To trzeba zoptymalizowac
       function Can_Deliver(Assembly: Assembly_Type) return Boolean is
@@ -205,58 +219,39 @@ procedure Simulation is
    begin
       Put_Line(ESC & "[91m" & "B: Buffer started" & ESC & "[0m");
       Setup_Variables;
-
-
-
-
-
-
-
-      -- TODO: Ulepszyc petle
       loop
-         accept Take(Product: in Producer_Type; Number: in Integer) do
-            if Can_Accept(Product) then
-               Put_Line(ESC & "[91m" & "B: Accepted product " & Product_Name(Product) & " number " &
-                          Integer'Image(Number)& ESC & "[0m");
-               Storage(Product) := Storage(Product) + 1;
-               In_Storage := In_Storage + 1;
-            else
-               Put_Line(ESC & "[91m" & "B: Rejected product " & Product_Name(Product) & " number " &
-                          Integer'Image(Number)& ESC & "[0m");
-            end if;
-         end Take;
-         Storage_Contents;
-
-         accept Deliver(Assembly: in Assembly_Type; Number: out Integer) do
-            if Can_Deliver(Assembly) then
-               Put_Line(ESC & "[91m" & "B: Delivered assembly " & Assembly_Name(Assembly) & " number " &
-                          Integer'Image(Assembly_Number(Assembly))& ESC & "[0m");
-               for W in Producer_Type loop
-                  Storage(W) := Storage(W) - Assembly_Content(Assembly, W);
-                  In_Storage := In_Storage - Assembly_Content(Assembly, W);
-               end loop;
-               Number := Assembly_Number(Assembly);
-               Assembly_Number(Assembly) := Assembly_Number(Assembly) + 1;
-            else
-               Put_Line(ESC & "[91m" & "B: Lacking products for assembly " & Assembly_Name(Assembly)& ESC & "[0m");
-               Number := 0;
-            end if;
-         end Deliver;
-         Storage_Contents;
-
+         select
+            accept Take(Product: in Producer_Type; Number: in Integer) do
+               if Can_Accept(Product) then
+                  Put_Line(ESC & "[91m" & "B: Accepted product " & Product_Name(Product) & " number " &
+                             Integer'Image(Number)& ESC & "[0m");
+                  Storage(Product) := Storage(Product) + 1;
+                  In_Storage := In_Storage + 1;
+               else
+                  Put_Line(ESC & "[91m" & "B: Rejected product " & Product_Name(Product) & " number " &
+                             Integer'Image(Number)& ESC & "[0m");
+               end if;
+            end Take;
+            Storage_Contents;
+         or
+            accept Deliver(Assembly: in Assembly_Type; Number: out Integer) do
+               if Can_Deliver(Assembly) then
+                  Put_Line(ESC & "[91m" & "B: Delivered assembly " & Assembly_Name(Assembly) & " number " &
+                             Integer'Image(Assembly_Number(Assembly))& ESC & "[0m");
+                  for W in Producer_Type loop
+                     Storage(W) := Storage(W) - Assembly_Content(Assembly, W);
+                     In_Storage := In_Storage - Assembly_Content(Assembly, W);
+                  end loop;
+                  Number := Assembly_Number(Assembly);
+                  Assembly_Number(Assembly) := Assembly_Number(Assembly) + 1;
+               else
+                  Put_Line(ESC & "[91m" & "B: Lacking products for assembly " & Assembly_Name(Assembly)& ESC & "[0m");
+                  Number := 0;
+               end if;
+            end Deliver;
+            Storage_Contents;
+         end select;
       end loop;
-
-
-
-
-
-
-
-
-
-
-
-
 
    end Buffer;
 
@@ -271,4 +266,3 @@ begin
       K(J).Start(J,12);
    end loop;
 end Simulation;
-
