@@ -165,104 +165,136 @@ procedure Simulation is
 
 
       function Can_Accept(Product: Producer_Type) return Boolean is
-         Avg_Storage : Float := Float(In_Storage) / Float(Number_Of_Producers);
-         Missing_In_Any : Boolean := False;
-         Needed_For_Assembly : Boolean := False;
+         Usage_Ratio     : Float := Float(In_Storage) / Float(Storage_Capacity);
+         Avg_Storage     : Float := Float(In_Storage) / Float(Number_Of_Producers);
+         Min_Stock       : Integer := Storage(Product);
+         Product_Needed  : Boolean := False;
+         Product_Bottleneck : Boolean := False;
       begin
          -- Bufor pelny
          if In_Storage >= Storage_Capacity then
             return False;
          end if;
 
-         -- Czy dany produkt jest potrzebny do jakiegos zestawu
-         for A in Assembly_Type loop
+         -- Jezeli bufor pelny (powyzej 90%) - przyjmujemy najmniej liczne produkty
+         if Usage_Ratio > 0.9 then
             declare
-               Missing : Boolean := False;
+               Min_Count : Integer := Storage(1);
             begin
+               -- Znajdź minimalny poziom zapasu wśród wszystkich produktów
                for P in Producer_Type loop
-                  if Storage(P) < Assembly_Content(A, P) then
-                     Missing := True;
+                  if Storage(P) < Min_Count then
+                     Min_Count := Storage(P);
                   end if;
                end loop;
 
-               if Missing and then Assembly_Content(A, Product) > 0 then
-                  Needed_For_Assembly := True;
-                  exit;
+               -- Przyjmij tylko produkty o najmniejszym stanie magazynowym
+               if Storage(Product) = Min_Count then
+                  return True;
+               else
+                  return False;
                end if;
             end;
-         end loop;
-         -- TODO zoptymalizowac zmienne
-         if In_Storage > Storage_Capacity - 5 and then not Needed_For_Assembly then
+         end if;
+
+
+         -- Jezeli bufor bardzo pelny (powyzej 80%) - przyjmujemy tylko produkty potrzebne do dokonczenia zestawu
+         if Usage_Ratio > 0.8 then
+            for A in Assembly_Type loop
+               declare
+                  Missing : Boolean := False;
+               begin
+                  for P in Producer_Type loop
+                     if Storage(P) < Assembly_Content(A, P) then
+                        Missing := True;
+                     end if;
+                  end loop;
+
+                  if Missing and then Assembly_Content(A, Product) > 0 then
+                     Product_Needed := True;
+                     exit;
+                  end if;
+               end;
+            end loop;
+            return Product_Needed;
+         end if;
+
+         -- Jesli bufor srednio zapelniony (50–80%) - unikamy nadprodukcji jednego produktu
+         if Usage_Ratio > 0.5 and then Float(Storage(Product)) > 1.5 * Avg_Storage then
             return False;
          end if;
 
-         -- Zbyt duzo danego produktu wzgledem sredniej (monopolizacja)
-         -- TODO zoptymalizowac zmienne
-         if Float(Storage(Product)) > 1.5 * Avg_Storage + 0.0 then
-            return False;
-         end if;
+         -- Jesli bufor malo zapelniony (<50%) – wspieramy produkty, ktore są w deficycie wzgledem innych
+         declare
+            Min_Count : Integer := Storage(1);
+            Max_Count : Integer := Storage(1);
+         begin
+            for P in Producer_Type loop
+               if Storage(P) < Min_Count then
+                  Min_Count := Storage(P);
+               end if;
+               if Storage(P) > Max_Count then
+                  Max_Count := Storage(P);
+               end if;
+            end loop;
 
-         -- skoro nie ma powodu do odrzucenia to dodajemy
+            if Storage(Product) = Min_Count then
+               Product_Bottleneck := True;
+            end if;
+
+            if Product_Bottleneck then
+               return True;
+            end if;
+         end;
+
          return True;
       end Can_Accept;
 
 
 
       function Can_Deliver(Assembly: Assembly_Type) return Boolean is
-         CanBuild : Boolean := True;
-         Total_Required : Integer := 0;
-         OtherAssembliesPossible : Boolean := False;
+         Usage_Ratio     : Float := Float(In_Storage) / Float(Storage_Capacity);
+         Enough          : Boolean := True;
+         Total_Required  : Integer := 0;
+         Min_After_Deliv : Integer := Integer'Last;
       begin
+         -- Mozna zrobic zestaw
          for P in Producer_Type loop
             if Storage(P) < Assembly_Content(Assembly, P) then
-               CanBuild := False;
+               Enough := False;
                exit;
             end if;
             Total_Required := Total_Required + Assembly_Content(Assembly, P);
          end loop;
 
-         if not CanBuild then
+         if not Enough then
             return False;
          end if;
 
-         -- Zapas
-         if In_Storage < (Storage_Capacity / 5) then
-            return False;
-         end if;
-
-         -- Wolimy najwieksze zestawy
-         -- (zwalniaja wiecej miejsca w magazynie)
-         -- TODO zoptymalizowac zmienne
-         if In_Storage > (Storage_Capacity * 3 / 4) and then Total_Required < 3 then
-            return False;
-         end if;
-
-         -- Nie wolno zabrac ostatniego elementu
-         for A in Assembly_Type loop
-            if A /= Assembly then
-               declare
-                  Possible : Boolean := True;
-               begin
-                  for P in Producer_Type loop
-                     if Storage(P) - Assembly_Content(Assembly, P) < Assembly_Content(A, P) then
-                        Possible := False;
-                        exit;
-                     end if;
-                  end loop;
-                  if Possible then
-                     OtherAssembliesPossible := True;
-                     exit;
-                  end if;
-               end;
-            end if;
+         -- Minimalny poziom zapasu po dostawie (chroni przed zaglodzeniem)
+         for P in Producer_Type loop
+            declare
+               After : Integer := Storage(P) - Assembly_Content(Assembly, P);
+            begin
+               if After < Min_After_Deliv then
+                  Min_After_Deliv := After;
+               end if;
+            end;
          end loop;
-         -- TODO zoptymalizowac zmienne
-         if not OtherAssembliesPossible and then In_Storage < Storage_Capacity / 2 then
+
+         -- Jezeli bufor bardzo pusty ( ponizej 30%), nie wydawaj jeśli coś spadłoby poniżej 2
+         if Usage_Ratio < 0.3 and then Min_After_Deliv < 2 then
+            return False;
+         end if;
+
+         -- Jezeli bufor bardzo pelny (powyzej 80%) - preferuj duze zestawy
+         if Usage_Ratio > 0.8 and then Total_Required < 3 then
             return False;
          end if;
 
          return True;
       end Can_Deliver;
+
 
 
 
