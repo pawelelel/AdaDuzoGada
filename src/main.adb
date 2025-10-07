@@ -317,39 +317,78 @@ procedure Simulation is
    begin
       Put_Line(ESC & "[91m" & "B: Buffer started" & ESC & "[0m");
       Setup_Variables;
-      loop
-         select
-            accept Take(Product: in Producer_Type; Number: in Integer) do
-               if Can_Accept(Product) then
-                  Put_Line(ESC & "[91m" & "B: Accepted product " & Product_Name(Product) & " number " &
-                             Integer'Image(Number)& ESC & "[0m");
-                  Storage(Product) := Storage(Product) + 1;
-                  In_Storage := In_Storage + 1;
-               else
-                  Put_Line(ESC & "[91m" & "B: Rejected product " & Product_Name(Product) & " number " &
-                             Integer'Image(Number)& ESC & "[0m");
-               end if;
-            end Take;
-            Storage_Contents;
-         or
-            accept Deliver(Assembly: in Assembly_Type; Number: out Integer) do
-               if Can_Deliver(Assembly) then
-                  Put_Line(ESC & "[91m" & "B: Delivered assembly " & Assembly_Name(Assembly) & " number " &
-                             Integer'Image(Assembly_Number(Assembly))& ESC & "[0m");
-                  for W in Producer_Type loop
-                     Storage(W) := Storage(W) - Assembly_Content(Assembly, W);
-                     In_Storage := In_Storage - Assembly_Content(Assembly, W);
-                  end loop;
-                  Number := Assembly_Number(Assembly);
-                  Assembly_Number(Assembly) := Assembly_Number(Assembly) + 1;
-               else
-                  Put_Line(ESC & "[91m" & "B: Lacking products for assembly " & Assembly_Name(Assembly)& ESC & "[0m");
-                  Number := 0;
-               end if;
-            end Deliver;
-            Storage_Contents;
-         end select;
-      end loop;
+
+      declare
+         Full_Buffer_Count : Integer := 0;
+         Max_Full_Cycles   : constant Integer := 5; -- po tylu cyklach czyscimy najwiekszy element
+      begin
+         loop
+            select
+               accept Take(Product: in Producer_Type; Number: in Integer) do
+                  if Can_Accept(Product) then
+                     Put_Line(ESC & "[91m" & "B: Accepted product " & Product_Name(Product) & " number " &
+                                Integer'Image(Number)& ESC & "[0m");
+                     Storage(Product) := Storage(Product) + 1;
+                     In_Storage := In_Storage + 1;
+                     Full_Buffer_Count := 0; -- reset licznika
+                  else
+                     Put_Line(ESC & "[91m" & "B: Rejected product " & Product_Name(Product) & " number " &
+                                Integer'Image(Number)& ESC & "[0m");
+                     if In_Storage >= Storage_Capacity then
+                        Full_Buffer_Count := Full_Buffer_Count + 1;
+                        if Full_Buffer_Count >= Max_Full_Cycles then
+                           declare
+                              Max_P     : Producer_Type := 1;
+                              Max_Value : Integer := Storage(1);
+                           begin
+                              -- znajdujemy produkt z najwieksza iloscia w magazynie
+                              for P in Producer_Type loop
+                                 if Storage(P) > Max_Value then
+                                    Max_Value := Storage(P);
+                                    Max_P := P;
+                                 end if;
+                              end loop;
+
+                              -- usun 1 sztuke tego produktu, by odblokowac system
+                              -- UWAGA!!!! tylko w ostatecznosci
+                              if Max_Value > 0 then
+                                 Storage(Max_P) := Storage(Max_P) - 1;
+                                 In_Storage := In_Storage - 1;
+                                 Put_Line(ESC & "[91m" &
+                                    "B: Buffer full too long – removed one " &
+                                    Product_Name(Max_P) & ESC & "[0m");
+                              end if;
+
+                              Full_Buffer_Count := 0;
+                           end;
+                        end if;
+                     end if;
+                  end if;
+               end Take;
+               Storage_Contents;
+            or
+               accept Deliver(Assembly: in Assembly_Type; Number: out Integer) do
+                  if Can_Deliver(Assembly) then
+                     Put_Line(ESC & "[91m" & "B: Delivered assembly " & Assembly_Name(Assembly) & " number " &
+                                Integer'Image(Assembly_Number(Assembly))& ESC & "[0m");
+                     for W in Producer_Type loop
+                        Storage(W) := Storage(W) - Assembly_Content(Assembly, W);
+                        In_Storage := In_Storage - Assembly_Content(Assembly, W);
+                     end loop;
+                     Number := Assembly_Number(Assembly);
+                     Assembly_Number(Assembly) := Assembly_Number(Assembly) + 1;
+                     Full_Buffer_Count := 0; -- reset po udanym wydaniu
+                  else
+                     Put_Line(ESC & "[91m" & "B: Lacking products for assembly " &
+                        Assembly_Name(Assembly)& ESC & "[0m");
+                     Number := 0;
+                  end if;
+               end Deliver;
+               Storage_Contents;
+            end select;
+         end loop;
+      end;
+
 
    end Buffer;
 
