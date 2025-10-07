@@ -163,38 +163,77 @@ procedure Simulation is
 
 
 
-      -- TODO: To trzeba zoptymalizowac
+
       function Can_Accept(Product: Producer_Type) return Boolean is
-         Total_Demand: Integer := 0;
+         Avg_Storage : Float := Float(In_Storage) / Float(Number_Of_Producers);
+         Needed : Boolean := False;
       begin
+         -- Bufor pelny
          if In_Storage >= Storage_Capacity then
             return False;
          end if;
 
+         -- Za duzo danego produktu (unikamy monopolizacji)
+         if Float(Storage(Product)) > 2.0 * Avg_Storage then
+            return False;
+         end if;
+
+         -- Czy jakis zestaw potrzebuje danego produktu
          for A in Assembly_Type loop
-            Total_Demand := Total_Demand + Assembly_Content(A, Product);
+            declare
+               Missing : Boolean := False;
+            begin
+               for P in Producer_Type loop
+                  if Storage(P) < Assembly_Content(A, P) then
+                     Missing := True;
+                     exit;
+                  end if;
+               end loop;
+               if Missing and then Assembly_Content(A, Product) > 0 then
+                  Needed := True;
+                  exit;
+               end if;
+            end;
          end loop;
 
-         if Total_Demand = 0 then
-            return False;
+         if Needed then
+            return True;
          end if;
 
-         if Storage(Product) >= Max_Assembly_Content(Product) * 4 then
-            return False;
-         end if;
-
+         -- skoro nie ma powodu do odrzucenia to dodajemy
          return True;
       end Can_Accept;
 
 
-      -- TODO: To trzeba zoptymalizowac
+
       function Can_Deliver(Assembly: Assembly_Type) return Boolean is
+         Enough : Boolean := True;
       begin
-         for W in Producer_Type loop
-            if Storage(W) < Assembly_Content(Assembly, W) then
-               return False;
+         for P in Producer_Type loop
+            if Storage(P) < Assembly_Content(Assembly, P) then
+               Enough := False;
+               exit;
             end if;
          end loop;
+
+         if not Enough then
+            return False;
+         end if;
+
+         -- Wolimy najwieksze zestawy
+         -- (zwalniaja wiecej miejsca w magazynie)
+         declare
+            Total_Required : Integer := 0;
+         begin
+            for P in Producer_Type loop
+               Total_Required := Total_Required + Assembly_Content(Assembly, P);
+            end loop;
+
+            if In_Storage > (Storage_Capacity / 2) and then Total_Required < 3 then
+               return False;
+            end if;
+         end;
+
          return True;
       end Can_Deliver;
 
@@ -206,15 +245,14 @@ procedure Simulation is
 
 
 
-      procedure Storage_Contents is
-      begin
-         for W in Producer_Type loop
-            Put_Line("|   Storage contents: " & Integer'Image(Storage(W)) & " "
-                     & Product_Name(W));
-         end loop;
-         Put_Line("|   Number of products in storage: " & Integer'Image(In_Storage));
-
-      end Storage_Contents;
+   procedure Storage_Contents is
+   begin
+      for W in Producer_Type loop
+         Put_Line("|   Storage contents: " & Integer'Image(Storage(W)) & " "
+                  & Product_Name(W));
+      end loop;
+      Put_Line("|   Number of products in storage: " & Integer'Image(In_Storage));
+   end Storage_Contents;
 
    begin
       Put_Line(ESC & "[91m" & "B: Buffer started" & ESC & "[0m");
