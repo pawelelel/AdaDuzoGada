@@ -166,19 +166,15 @@ procedure Simulation is
 
       function Can_Accept(Product: Producer_Type) return Boolean is
          Avg_Storage : Float := Float(In_Storage) / Float(Number_Of_Producers);
-         Needed : Boolean := False;
+         Missing_In_Any : Boolean := False;
+         Needed_For_Assembly : Boolean := False;
       begin
          -- Bufor pelny
          if In_Storage >= Storage_Capacity then
             return False;
          end if;
 
-         -- Za duzo danego produktu (unikamy monopolizacji)
-         if Float(Storage(Product)) > 2.0 * Avg_Storage then
-            return False;
-         end if;
-
-         -- Czy jakis zestaw potrzebuje danego produktu
+         -- Czy dany produkt jest potrzebny do jakiegos zestawu
          for A in Assembly_Type loop
             declare
                Missing : Boolean := False;
@@ -186,18 +182,24 @@ procedure Simulation is
                for P in Producer_Type loop
                   if Storage(P) < Assembly_Content(A, P) then
                      Missing := True;
-                     exit;
                   end if;
                end loop;
+
                if Missing and then Assembly_Content(A, Product) > 0 then
-                  Needed := True;
+                  Needed_For_Assembly := True;
                   exit;
                end if;
             end;
          end loop;
+         -- TODO zoptymalizowac zmienne
+         if In_Storage > Storage_Capacity - 5 and then not Needed_For_Assembly then
+            return False;
+         end if;
 
-         if Needed then
-            return True;
+         -- Zbyt duzo danego produktu wzgledem sredniej (monopolizacja)
+         -- TODO zoptymalizowac zmienne
+         if Float(Storage(Product)) > 1.5 * Avg_Storage + 0.0 then
+            return False;
          end if;
 
          -- skoro nie ma powodu do odrzucenia to dodajemy
@@ -207,35 +209,61 @@ procedure Simulation is
 
 
       function Can_Deliver(Assembly: Assembly_Type) return Boolean is
-         Enough : Boolean := True;
+         CanBuild : Boolean := True;
+         Total_Required : Integer := 0;
+         OtherAssembliesPossible : Boolean := False;
       begin
          for P in Producer_Type loop
             if Storage(P) < Assembly_Content(Assembly, P) then
-               Enough := False;
+               CanBuild := False;
                exit;
             end if;
+            Total_Required := Total_Required + Assembly_Content(Assembly, P);
          end loop;
 
-         if not Enough then
+         if not CanBuild then
+            return False;
+         end if;
+
+         -- Zapas
+         if In_Storage < (Storage_Capacity / 5) then
             return False;
          end if;
 
          -- Wolimy najwieksze zestawy
          -- (zwalniaja wiecej miejsca w magazynie)
-         declare
-            Total_Required : Integer := 0;
-         begin
-            for P in Producer_Type loop
-               Total_Required := Total_Required + Assembly_Content(Assembly, P);
-            end loop;
+         -- TODO zoptymalizowac zmienne
+         if In_Storage > (Storage_Capacity * 3 / 4) and then Total_Required < 3 then
+            return False;
+         end if;
 
-            if In_Storage > (Storage_Capacity / 2) and then Total_Required < 3 then
-               return False;
+         -- Nie wolno zabrac ostatniego elementu
+         for A in Assembly_Type loop
+            if A /= Assembly then
+               declare
+                  Possible : Boolean := True;
+               begin
+                  for P in Producer_Type loop
+                     if Storage(P) - Assembly_Content(Assembly, P) < Assembly_Content(A, P) then
+                        Possible := False;
+                        exit;
+                     end if;
+                  end loop;
+                  if Possible then
+                     OtherAssembliesPossible := True;
+                     exit;
+                  end if;
+               end;
             end if;
-         end;
+         end loop;
+         -- TODO zoptymalizowac zmienne
+         if not OtherAssembliesPossible and then In_Storage < Storage_Capacity / 2 then
+            return False;
+         end if;
 
          return True;
       end Can_Deliver;
+
 
 
 
