@@ -179,7 +179,7 @@ procedure Simulation is
             return False;
          end if;
 
-         if Storage(Product) >= Max_Assembly_Content(Product) * 2 then
+         if Storage(Product) >= Max_Assembly_Content(Product) * 4 then
             return False;
          end if;
 
