@@ -167,7 +167,6 @@ procedure Simulation is
       function Can_Accept(Product: Producer_Type) return Boolean is
          Usage_Ratio     : Float := Float(In_Storage) / Float(Storage_Capacity);
          Avg_Storage     : Float := Float(In_Storage) / Float(Number_Of_Producers);
-         Min_Stock       : Integer := Storage(Product);
          Product_Needed  : Boolean := False;
          Product_Bottleneck : Boolean := False;
       begin
