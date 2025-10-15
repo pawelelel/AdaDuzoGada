@@ -41,12 +41,17 @@ procedure Simulation is
                   Consumption_Time: in Integer);
    end Consumer;
 
+   task type Furious_Worker is
+      entry Start(Product: in Producer_Type; Production_Time: in Integer);
+   end Furious_Worker;
+
    -- Buffer receives products from Producers and delivers Assemblies to Consumers
    task type Buffer is
       -- Accept a product to the storage (provided there is a room for it)
       entry Take(Product: in Producer_Type; Number: in Integer);
       -- Deliver an assembly (provided there are enough products for it)
       entry Deliver(Assembly: in Assembly_Type; Number: out Integer);
+      entry Quarrel_In_Storage();
    end Buffer;
 
    P: array ( 1 .. Number_Of_Producers ) of Producer;
@@ -55,6 +60,26 @@ procedure Simulation is
 
 
    ----TASK DEFINITIONS----
+
+   task body Furious_Worker is
+      subtype fury_level is Integer range 0 .. 10;
+      package Random_Fury is new Ada.Numerics.Discrete_Random(fury_level);
+      G: Random_Fury.Generator;
+      fury_trigger: Integer;
+      fury: Integer;
+   begin
+      accept Start(Product: in Producer_Type; Production_Time: in Integer) do
+         Random_Fury.Reset(G);
+         fury_trigger := 8;
+         fury := 0;
+      end Start;
+      loop
+         fury := Random_Fury.Random(G);
+         if fury > fury_trigger then
+
+         end if;
+      end loop;
+   end Furious_Worker;
 
    --Producer--
 
@@ -299,8 +324,9 @@ procedure Simulation is
 
 
 
-
-
+      -- TODO dokonczyc
+      procedure Throwing_Products() is
+      end Throwing_Products;
 
 
 
@@ -365,8 +391,7 @@ procedure Simulation is
                   end if;
                end Take;
                Storage_Contents;
-            or
-               accept Deliver(Assembly: in Assembly_Type; Number: out Integer) do
+            or accept Deliver(Assembly: in Assembly_Type; Number: out Integer) do
                   if Can_Deliver(Assembly) then
                      Put_Line(ESC & "[91m" & "B: Delivered assembly " & Assembly_Name(Assembly) & " number " &
                                 Integer'Image(Assembly_Number(Assembly))& ESC & "[0m");
@@ -384,6 +409,9 @@ procedure Simulation is
                   end if;
                end Deliver;
                Storage_Contents;
+            or accept Quarrel_In_Storage() do
+                  
+               end Quarrel_In_Storage;
             end select;
          end loop;
       end;
