@@ -9,57 +9,56 @@ procedure Simulation is
  
     ----GLOBAL VARIABLES---
  
-    Number_Of_Producers  : constant Integer := 5;
-    Number_Of_Assemblies : constant Integer := 3;
-    Number_Of_Consumers  : constant Integer := 2;
+    Ilosc_kucharzy  : constant Integer := 5;
+    Ilosc_Stolow : constant Integer := 3;
+    Ilosc_zjadaczy  : constant Integer := 2;
  
-    subtype Producer_Type is Integer range 1 .. Number_Of_Producers;
-    subtype Assembly_Type is Integer range 1 .. Number_Of_Assemblies;
-    subtype Consumer_Type is Integer range 1 .. Number_Of_Consumers;
+    subtype Typ_Kucharza is Integer range 1 .. Ilosc_kucharzy;
+    subtype Typ_Stolu is Integer range 1 .. Ilosc_Stolow;
+    subtype Typ_Zjadacza is Integer range 1 .. Ilosc_zjadaczy;
  
     --each Producer is assigned a Product that it produces
-    Product_Name  : constant array (Producer_Type) of String (1 .. 8) :=
-       ("Product1", "Product2", "Product3", "Product4", "Product5");
+    Nazwa_Dania  : constant array (Typ_Kucharza) of String (1 .. 6) :=
+       ("Danie1", "Danie2", "Danie3", "Danie4", "Danie5");
     --Assembly is a collection of products
-    Assembly_Name : constant array (Assembly_Type) of String (1 .. 9) :=
-       ("Assembly1", "Assembly2", "Assembly3");
+    Nazwa_Stolu : constant array (Typ_Stolu) of String (1 .. 5) :=
+       ("Stol1", "Stol2", "Stol3");
  
-    task type Furious_Worker is
+    task type Szalony_Kelner is
         entry Start;
-    end Furious_Worker;
+    end Szalony_Kelner;
 
     ----TASK DECLARATIONS----
  
     -- Producer produces determined product
-    task type Producer is
-        entry Start (Product : in Producer_Type; Production_Time : in Integer);
-    end Producer;
+    task type Kucharz is
+        entry Start (Danie : in Typ_Kucharza; Czas_Gotowania : in Integer);
+    end Kucharz;
  
     -- Consumer gets an arbitrary assembly of several products from the buffer
     -- but he/she orders it randomly
-    task type Consumer is
-        entry Start
-           (Consumer_Number : in Consumer_Type; Consumption_Time : in Integer);
-    end Consumer;
+    task type Zjadacz is
+        entry Start (Numer_Zjadacza : in Typ_Zjadacza; Czas_Zjadania : in Integer);
+    end Zjadacz;
  
     -- Buffer receives products from Producers and delivers Assemblies to Consumers
-    task type Buffer is
+    task type Stolik is
         -- Accept a product to the storage (provided there is a room for it)
-        entry Take (Product : in Producer_Type; Number : in Integer);
+        entry Take (Danie : in Typ_Kucharza; Number : in Integer);
         -- Deliver an assembly (provided there are enough products for it)
-        entry Deliver (Assembly : in Assembly_Type; Number : out Integer);
+        entry Deliver (Stol : in Typ_Stolu; Number : out Integer);
         -- Furious worker robi problemy
         entry Quarrel_In_Storage;
-    end Buffer;
+    end Stolik;
  
-    FW : Furious_Worker;
-    P : array (1 .. Number_Of_Producers) of Producer;
-    K : array (1 .. Number_Of_Consumers) of Consumer;
-    B : Buffer;
+    FW : Szalony_Kelner;
+    P : array (1 .. Ilosc_kucharzy) of Kucharz;
+    K : array (1 .. Ilosc_zjadaczy) of Zjadacz;
+    B : Stolik;
  
     ----TASK DEFINITIONS----
  
-    task body Furious_Worker is
+    task body Szalony_Kelner is
         subtype fury_level is Integer range 0 .. 10;
         package Random_Fury is new Ada.Numerics.Discrete_Random (fury_level);
         G            : Random_Fury.Generator;
@@ -74,7 +73,7 @@ procedure Simulation is
             fury         := 0;
             Time := Duration(0.5);
         end Start;
-        Put_Line ("Fury start");
+        Put_Line ("Kelner wychodzi na zer");
         loop
             delay Time;
             fury := Random_Fury.Random (G);
@@ -82,13 +81,13 @@ procedure Simulation is
                 B.Quarrel_In_Storage;
             end if;
         end loop;
-    end Furious_Worker;
+    end Szalony_Kelner;
  
     --Producer--
  
-    task body Producer is
-        subtype Production_Time_Range is Integer range 1 .. 3;
-        package Random_Production is new Ada.Numerics.Discrete_Random (Production_Time_Range);
+    task body Kucharz is
+        subtype Czas_Gotowania_Rozmiar is Integer range 1 .. 3;
+        package Random_Production is new Ada.Numerics.Discrete_Random (Czas_Gotowania_Rozmiar);
         --  random number generator
         G                    : Random_Production.Generator;
         Producer_Type_Number : Integer;
@@ -96,23 +95,23 @@ procedure Simulation is
         Production           : Integer;
         Random_Time          : Duration;
     begin
-        accept Start (Product : in Producer_Type; Production_Time : in Integer)
+        accept Start (Danie : in Typ_Kucharza; Czas_Gotowania : in Integer)
         do
             --  start random number generator
             Random_Production.Reset (G);
             Product_Number       := 1;
-            Producer_Type_Number := Product;
-            Production           := Production_Time;
+            Producer_Type_Number := Danie;
+            Production           := Czas_Gotowania;
         end Start;
         Put_Line
            (ESC & "[93m" & "P: Started producer of " &
-            Product_Name (Producer_Type_Number) & ESC & "[0m");
+            Nazwa_Dania (Producer_Type_Number) & ESC & "[0m");
         loop
             Random_Time := Duration (Random_Production.Random (G));
             delay Random_Time;
             Put_Line
                (ESC & "[93m" & "P: Produced product " &
-                Product_Name (Producer_Type_Number) & " number " &
+                Nazwa_Dania (Producer_Type_Number) & " number " &
                 Integer'Image (Product_Number) & ESC & "[0m");
             -- Accept for storage
  
@@ -121,7 +120,7 @@ procedure Simulation is
                 B.Take (Producer_Type_Number, Product_Number);
                 Put_Line
                    (ESC & "[93m" & "P: Delivered " &
-                    Product_Name (Producer_Type_Number) & " number " &
+                    Nazwa_Dania (Producer_Type_Number) & " number " &
                     Integer'Image (Product_Number) & ESC & "[0m");
                 Product_Number := Product_Number + 1;
             or
@@ -129,42 +128,42 @@ procedure Simulation is
                 Put_Line
                    (ESC & "[93m" &
                     "P: TIMEOUT - Buffer not responding, lost " &
-                    Product_Name (Producer_Type_Number) & " number " &
+                    Nazwa_Dania (Producer_Type_Number) & " number " &
                     Integer'Image (Product_Number) & ESC & "[0m");
                 Product_Number := Product_Number + 1;
  
             end select;
         end loop;
-    end Producer;
+    end Kucharz;
  
     --Consumer--
  
-    task body Consumer is
-        subtype Consumption_Time_Range is Integer range 4 .. 8;
+    task body Zjadacz is
+        subtype Czas_Zjadania_Rozmiar is Integer range 4 .. 8;
         package Random_Consumption is new Ada.Numerics.Discrete_Random
-           (Consumption_Time_Range);
+           (Czas_Zjadania_Rozmiar);
  
         --each Consumer takes any (random) Assembly from the Buffer
         package Random_Assembly is new Ada.Numerics.Discrete_Random
-           (Assembly_Type);
+           (Typ_Stolu);
  
         G               : Random_Consumption.Generator;
         GA              : Random_Assembly.Generator;
-        Consumer_Nb     : Consumer_Type;
+        Consumer_Nb     : Typ_Zjadacza;
         Assembly_Number : Integer;
         Consumption     : Integer;
-        Assembly_Type   : Integer;
+        Typ_Stolu   : Integer;
         Consumer_Name   :
-           constant array (1 .. Number_Of_Consumers) of String (1 .. 9) :=
-           ("Consumer1", "Consumer2");
+           constant array (1 .. Ilosc_zjadaczy) of String (1 .. 8) :=
+           ("Zjadacz1", "Zjadacz2");
         Retry_Delay     : constant Duration := 1.0;
     begin
-        accept Start(Consumer_Number : in Consumer_Type; Consumption_Time : in Integer)
+        accept Start(Numer_Zjadacza : in Typ_Zjadacza; Czas_Zjadania : in Integer)
         do
             Random_Consumption.Reset (G);
             Random_Assembly.Reset (GA);
-            Consumer_Nb := Consumer_Number;
-            Consumption := Consumption_Time;
+            Consumer_Nb := Numer_Zjadacza;
+            Consumption := Czas_Zjadania;
         end Start;
         Put_Line
            (ESC & "[96m" & "C: Started consumer " &
@@ -172,7 +171,7 @@ procedure Simulation is
         loop
             delay Duration
                (Random_Consumption.Random (G)); --  simulate consumption
-            Assembly_Type := Random_Assembly.Random (GA);
+            Typ_Stolu := Random_Assembly.Random (GA);
  
             -- 3a making sure that consument can't get assembly nr 0
             declare
@@ -182,13 +181,13 @@ procedure Simulation is
             begin
                 while not Succes and Attempts < Max_Attempts loop
                     -- take an assembly for consumption
-                    B.Deliver (Assembly_Type, Assembly_Number);
+                    B.Deliver (Typ_Stolu, Assembly_Number);
                     if Assembly_Number /= 0 then
                         Succes := True;
                         Put_Line
                            (ESC & "[96m" & "C: " &
                             Consumer_Name (Consumer_Nb) & " takes assembly " &
-                            Assembly_Name (Assembly_Type) & " number " &
+                            Nazwa_Stolu (Typ_Stolu) & " number " &
                             Integer'Image (Assembly_Number) & ESC & "[0m");
                     else
                         -- if assembly wasn't valid
@@ -198,7 +197,7 @@ procedure Simulation is
                                (ESC & "[96m" & "C: " &
                                 Consumer_Name (Consumer_Nb) &
                                 " cannot get assembly " &
-                                Assembly_Name (Assembly_Type) &
+                                Nazwa_Stolu (Typ_Stolu) &
                                 ", retrying..." & ESC & "[0m");
                             delay Retry_Delay;
                         else
@@ -206,7 +205,7 @@ procedure Simulation is
                                (ESC & "[96m" & "C: " &
                                 Consumer_Name (Consumer_Nb) &
                                 " giving up on assembly " &
-                                Assembly_Name (Assembly_Type) & " after " &
+                                Nazwa_Stolu (Typ_Stolu) & " after " &
                                 Integer'Image (Max_Attempts) & " attempts" &
                                 ESC & "[0m");
                         end if;
@@ -215,27 +214,27 @@ procedure Simulation is
  
             end;
         end loop;
-    end Consumer;
+    end Zjadacz;
 
     --Buffer--
  
-    task body Buffer is
+    task body Stolik is
         Storage_Capacity : constant Integer := 30;
-        type Storage_type is array (Producer_Type) of Integer;
+        type Storage_type is array (Typ_Kucharza) of Integer;
         Storage              : Storage_type := (0, 0, 0, 0, 0);
-        Assembly_Content : array (Assembly_Type, Producer_Type) of Integer :=
+        Assembly_Content : array (Typ_Stolu, Typ_Kucharza) of Integer :=
            ((2, 1, 2, 0, 2), (1, 2, 0, 1, 0), (3, 2, 2, 0, 1));
-        Max_Assembly_Content : array (Producer_Type) of Integer;
-        Assembly_Number      : array (Assembly_Type) of Integer := (1, 1, 1);
+        Max_Assembly_Content : array (Typ_Kucharza) of Integer;
+        Assembly_Number      : array (Typ_Stolu) of Integer := (1, 1, 1);
         In_Storage           : Integer := 0;
  
         Timeout : constant Duration := 2.0; -- duration of waiting for call
  
         procedure Setup_Variables is
         begin
-            for W in Producer_Type loop
+            for W in Typ_Kucharza loop
                 Max_Assembly_Content (W) := 0;
-                for Z in Assembly_Type loop
+                for Z in Typ_Stolu loop
                     if Assembly_Content (Z, W) > Max_Assembly_Content (W) then
                         Max_Assembly_Content (W) := Assembly_Content (Z, W);
                     end if;
@@ -243,11 +242,11 @@ procedure Simulation is
             end loop;
         end Setup_Variables;
  
-        function Can_Accept (Product : Producer_Type) return Boolean is
+        function Can_Accept (Danie : Typ_Kucharza) return Boolean is
             Usage_Ratio        : Float   :=
                Float (In_Storage) / Float (Storage_Capacity);
             Avg_Storage        : Float   :=
-               Float (In_Storage) / Float (Number_Of_Producers);
+               Float (In_Storage) / Float (Ilosc_kucharzy);
             Product_Needed     : Boolean := False;
             Product_Bottleneck : Boolean := False;
  
@@ -264,14 +263,14 @@ procedure Simulation is
                     Min_Count : Integer := Storage (1);
                 begin
                     -- Znajdź minimalny poziom zapasu wśród wszystkich produktów
-                    for P in Producer_Type loop
+                    for P in Typ_Kucharza loop
                         if Storage (P) < Min_Count then
                             Min_Count := Storage (P);
                         end if;
                     end loop;
  
                     -- Przyjmij tylko produkty o najmniejszym stanie magazynowym
-                    if Storage (Product) = Min_Count then
+                    if Storage (Danie) = Min_Count then
                         return True;
                     else
                         return False;
@@ -281,17 +280,17 @@ procedure Simulation is
  
             -- Jezeli bufor bardzo pelny (powyzej 80%) - przyjmujemy tylko produkty potrzebne do dokonczenia zestawu
             if Usage_Ratio > 0.8 then
-                for A in Assembly_Type loop
+                for A in Typ_Stolu loop
                     declare
                         Missing : Boolean := False;
                     begin
-                        for P in Producer_Type loop
+                        for P in Typ_Kucharza loop
                             if Storage (P) < Assembly_Content (A, P) then
                                 Missing := True;
                             end if;
                         end loop;
  
-                        if Missing and then Assembly_Content (A, Product) > 0
+                        if Missing and then Assembly_Content (A, Danie) > 0
                         then
                             Product_Needed := True;
                             exit;
@@ -303,7 +302,7 @@ procedure Simulation is
  
             -- Jesli bufor srednio zapelniony (50–80%) - unikamy nadprodukcji jednego produktu
             if Usage_Ratio > 0.5
-               and then Float (Storage (Product)) > 1.5 * Avg_Storage
+               and then Float (Storage (Danie)) > 1.5 * Avg_Storage
             then
                 return False;
             end if;
@@ -313,7 +312,7 @@ procedure Simulation is
                 Min_Count : Integer := Storage (1);
                 Max_Count : Integer := Storage (1);
             begin
-                for P in Producer_Type loop
+                for P in Typ_Kucharza loop
                     if Storage (P) < Min_Count then
                         Min_Count := Storage (P);
                     end if;
@@ -322,7 +321,7 @@ procedure Simulation is
                     end if;
                 end loop;
  
-                if Storage (Product) = Min_Count then
+                if Storage (Danie) = Min_Count then
                     Product_Bottleneck := True;
                 end if;
  
@@ -334,7 +333,7 @@ procedure Simulation is
             return True;
         end Can_Accept;
  
-        function Can_Deliver (Assembly : Assembly_Type) return Boolean is
+        function Can_Deliver (Stol : Typ_Stolu) return Boolean is
             Usage_Ratio     : Float   :=
                Float (In_Storage) / Float (Storage_Capacity);
             Enough          : Boolean := True;
@@ -342,13 +341,13 @@ procedure Simulation is
             Min_After_Deliv : Integer := Integer'Last;
         begin
             -- Mozna zrobic zestaw
-            for P in Producer_Type loop
-                if Storage (P) < Assembly_Content (Assembly, P) then
+            for P in Typ_Kucharza loop
+                if Storage (P) < Assembly_Content (Stol, P) then
                     Enough := False;
                     exit;
                 end if;
                 Total_Required :=
-                   Total_Required + Assembly_Content (Assembly, P);
+                   Total_Required + Assembly_Content (Stol, P);
             end loop;
  
             if not Enough then
@@ -356,10 +355,10 @@ procedure Simulation is
             end if;
  
             -- Minimalny poziom zapasu po dostawie (chroni przed zaglodzeniem)
-            for P in Producer_Type loop
+            for P in Typ_Kucharza loop
                 declare
                     After : Integer :=
-                       Storage (P) - Assembly_Content (Assembly, P);
+                       Storage (P) - Assembly_Content (Stol, P);
                 begin
                     if After < Min_After_Deliv then
                         Min_After_Deliv := After;
@@ -383,11 +382,11 @@ procedure Simulation is
         -- Wywalanie polowy zasobow
         procedure Throwing_Products is
         begin
-            for P in Producer_Type loop
+            for P in Typ_Kucharza loop
                 Storage(P) := Integer(Float'Ceiling(Float(Storage(P)) / 2.0));
             end loop;
             In_Storage := 0;
-            for P in Producer_Type loop
+            for P in Typ_Kucharza loop
                 In_Storage := In_Storage + Storage(P);
             end loop;
             Put_Line (ESC & "[91m" & "After the quarrel, half of the products were lost!" & ESC & "[0m");
@@ -395,10 +394,10 @@ procedure Simulation is
  
         procedure Storage_Contents is
         begin
-            for W in Producer_Type loop
+            for W in Typ_Kucharza loop
                 Put_Line
                    ("|   Storage contents: " & Integer'Image (Storage (W)) &
-                    " " & Product_Name (W));
+                    " " & Nazwa_Dania (W));
             end loop;
             Put_Line
                ("|   Number of products in storage: " &
@@ -416,31 +415,31 @@ procedure Simulation is
             loop
                 select
                     accept Take
-                       (Product : in Producer_Type; Number : in Integer)
+                       (Danie : in Typ_Kucharza; Number : in Integer)
                     do
-                        if Can_Accept (Product) then
+                        if Can_Accept (Danie) then
                             Put_Line
                                (ESC & "[91m" & "B: Accepted product " &
-                                Product_Name (Product) & " number " &
+                                Nazwa_Dania (Danie) & " number " &
                                 Integer'Image (Number) & ESC & "[0m");
-                            Storage (Product) := Storage (Product) + 1;
+                            Storage (Danie) := Storage (Danie) + 1;
                             In_Storage        := In_Storage + 1;
                             Full_Buffer_Count := 0; -- reset licznika
  
                         else
                             Put_Line
                                (ESC & "[91m" & "B: Rejected product " &
-                                Product_Name (Product) & " number " &
+                                Nazwa_Dania (Danie) & " number " &
                                 Integer'Image (Number) & ESC & "[0m");
                             if In_Storage >= Storage_Capacity then
                                 Full_Buffer_Count := Full_Buffer_Count + 1;
                                 if Full_Buffer_Count >= Max_Full_Cycles then
                                     declare
-                                        Max_P     : Producer_Type := 1;
+                                        Max_P     : Typ_Kucharza := 1;
                                         Max_Value : Integer := Storage (1);
                                     begin
                                         -- znajdujemy produkt z najwieksza iloscia w magazynie
-                                        for P in Producer_Type loop
+                                        for P in Typ_Kucharza loop
                                             if Storage (P) > Max_Value then
                                                 Max_Value := Storage (P);
                                                 Max_P     := P;
@@ -456,7 +455,7 @@ procedure Simulation is
                                             Put_Line
                                                (ESC & "[91m" &
                                                 "B: Buffer full too long – removed one " &
-                                                Product_Name (Max_P) & ESC &
+                                                Nazwa_Dania (Max_P) & ESC &
                                                 "[0m");
                                         end if;
  
@@ -469,31 +468,31 @@ procedure Simulation is
                     Storage_Contents;
                 or
                     accept Deliver
-                       (Assembly : in Assembly_Type; Number : out Integer)
+                       (Stol : in Typ_Stolu; Number : out Integer)
                     do
-                        if Can_Deliver (Assembly) then
+                        if Can_Deliver (Stol) then
                             Put_Line
                                (ESC & "[91m" & "B: Delivered assembly " &
-                                Assembly_Name (Assembly) & " number " &
-                                Integer'Image (Assembly_Number (Assembly)) &
+                                Nazwa_Stolu (Stol) & " number " &
+                                Integer'Image (Assembly_Number (Stol)) &
                                 ESC & "[0m");
-                            for W in Producer_Type loop
+                            for W in Typ_Kucharza loop
                                 Storage (W) :=
                                    Storage (W) -
-                                   Assembly_Content (Assembly, W);
+                                   Assembly_Content (Stol, W);
                                 In_Storage  :=
-                                   In_Storage - Assembly_Content (Assembly, W);
+                                   In_Storage - Assembly_Content (Stol, W);
                             end loop;
-                            Number := Assembly_Number (Assembly);
-                            Assembly_Number (Assembly) :=
-                               Assembly_Number (Assembly) + 1;
+                            Number := Assembly_Number (Stol);
+                            Assembly_Number (Stol) :=
+                               Assembly_Number (Stol) + 1;
                             Full_Buffer_Count := 0; -- reset po udanym wydaniu
  
                         else
                             Put_Line
                                (ESC & "[91m" &
                                 "B: Lacking products for assembly " &
-                                Assembly_Name (Assembly) & ESC & "[0m");
+                                Nazwa_Stolu (Stol) & ESC & "[0m");
                             Number := 0;
                         end if;
                     end Deliver;
@@ -506,17 +505,16 @@ procedure Simulation is
                 end select;
             end loop;
         end;
- 
-    end Buffer;
- 
+    end Stolik;
+
     ---"MAIN" FOR SIMULATION---
 begin
     FW.Start;
-    for I in 1 .. Number_Of_Producers loop
+    for I in 1 .. Ilosc_kucharzy loop
         P (I).Start (I, 10);
     end loop;
     
-    for J in 1 .. Number_Of_Consumers loop
+    for J in 1 .. Ilosc_zjadaczy loop
         K (J).Start (J, 12);
     end loop;
 end Simulation;
