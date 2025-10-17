@@ -24,6 +24,10 @@ procedure Simulation is
     Assembly_Name : constant array (Assembly_Type) of String (1 .. 9) :=
        ("Assembly1", "Assembly2", "Assembly3");
  
+    task type Furious_Worker is
+        entry Start;
+    end Furious_Worker;
+
     ----TASK DECLARATIONS----
  
     -- Producer produces determined product
@@ -38,19 +42,17 @@ procedure Simulation is
            (Consumer_Number : in Consumer_Type; Consumption_Time : in Integer);
     end Consumer;
  
-    task type Furious_Worker is
-        entry Start (Product : in Producer_Type; Production_Time : in Integer);
-    end Furious_Worker;
- 
     -- Buffer receives products from Producers and delivers Assemblies to Consumers
     task type Buffer is
         -- Accept a product to the storage (provided there is a room for it)
         entry Take (Product : in Producer_Type; Number : in Integer);
         -- Deliver an assembly (provided there are enough products for it)
         entry Deliver (Assembly : in Assembly_Type; Number : out Integer);
-        --  entry Quarrel_In_Storage();
+        -- Furious worker robi problemy
+        entry Quarrel_In_Storage;
     end Buffer;
  
+    FW : Furious_Worker;
     P : array (1 .. Number_Of_Producers) of Producer;
     K : array (1 .. Number_Of_Consumers) of Consumer;
     B : Buffer;
@@ -63,18 +65,22 @@ procedure Simulation is
         G            : Random_Fury.Generator;
         fury_trigger : Integer;
         fury         : Integer;
+        Time  : Duration;
     begin
-        accept Start (Product : in Producer_Type; Production_Time : in Integer)
+        accept Start
         do
             Random_Fury.Reset (G);
             fury_trigger := 8;
             fury         := 0;
+            Time := Duration(0.5);
         end Start;
+        Put_Line ("Fury start");
         loop
+            delay Time;
             fury := Random_Fury.Random (G);
-            --  if fury > fury_trigger then
-            --
-            --  end if;
+            if fury > fury_trigger then
+                B.Quarrel_In_Storage;
+            end if;
         end loop;
     end Furious_Worker;
  
@@ -82,8 +88,7 @@ procedure Simulation is
  
     task body Producer is
         subtype Production_Time_Range is Integer range 1 .. 3;
-        package Random_Production is new Ada.Numerics.Discrete_Random
-           (Production_Time_Range);
+        package Random_Production is new Ada.Numerics.Discrete_Random (Production_Time_Range);
         --  random number generator
         G                    : Random_Production.Generator;
         Producer_Type_Number : Integer;
@@ -120,7 +125,7 @@ procedure Simulation is
                     Integer'Image (Product_Number) & ESC & "[0m");
                 Product_Number := Product_Number + 1;
             or
-                delay Delivery_Timeout;
+                delay Random_Time;
                 Put_Line
                    (ESC & "[93m" &
                     "P: TIMEOUT - Buffer not responding, lost " &
@@ -154,8 +159,7 @@ procedure Simulation is
            ("Consumer1", "Consumer2");
         Retry_Delay     : constant Duration := 1.0;
     begin
-        accept Start
-           (Consumer_Number : in Consumer_Type; Consumption_Time : in Integer)
+        accept Start(Consumer_Number : in Consumer_Type; Consumption_Time : in Integer)
         do
             Random_Consumption.Reset (G);
             Random_Assembly.Reset (GA);
@@ -212,7 +216,7 @@ procedure Simulation is
             end;
         end loop;
     end Consumer;
- 
+
     --Buffer--
  
     task body Buffer is
@@ -376,9 +380,18 @@ procedure Simulation is
             return True;
         end Can_Deliver;
  
-        -- TODO dokonczyc
-        --  procedure Throwing_Products() is
-        --  end Throwing_Products;
+        -- Wywalanie polowy zasobow
+        procedure Throwing_Products is
+        begin
+            for P in Producer_Type loop
+                Storage(P) := Integer(Float'Ceiling(Float(Storage(P)) / 2.0));
+            end loop;
+            In_Storage := 0;
+            for P in Producer_Type loop
+                In_Storage := In_Storage + Storage(P);
+            end loop;
+            Put_Line (ESC & "[91m" & "After the quarrel, half of the products were lost!" & ESC & "[0m");
+        end Throwing_Products;
  
         procedure Storage_Contents is
         begin
@@ -486,10 +499,10 @@ procedure Simulation is
                     end Deliver;
                     Storage_Contents;
                 or
-                    delay Timeout;
-                    --  or accept Quarrel_In_Storage() do
-                    --
-                    --     end Quarrel_In_Storage;
+                    accept Quarrel_In_Storage do
+                        Put_Line (ESC & "[91m" & "A quarrel in the storage!" & ESC & "[0m");
+                        Throwing_Products;
+                    end Quarrel_In_Storage;
                 end select;
             end loop;
         end;
@@ -498,9 +511,11 @@ procedure Simulation is
  
     ---"MAIN" FOR SIMULATION---
 begin
+    FW.Start;
     for I in 1 .. Number_Of_Producers loop
         P (I).Start (I, 10);
     end loop;
+    
     for J in 1 .. Number_Of_Consumers loop
         K (J).Start (J, 12);
     end loop;
