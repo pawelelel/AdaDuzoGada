@@ -59,25 +59,25 @@ procedure Simulation is
     ----TASK DEFINITIONS----
  
     task body Szalony_Kelner is
-        subtype fury_level is Integer range 0 .. 10;
-        package Random_Fury is new Ada.Numerics.Discrete_Random (fury_level);
+        subtype poziom_furii_zakres is Integer range 0 .. 10;
+        package Random_Fury is new Ada.Numerics.Discrete_Random (poziom_furii_zakres);
         G            : Random_Fury.Generator;
-        fury_trigger : Integer;
-        fury         : Integer;
-        Time  : Duration;
+        poziom_furii : Integer;
+        furia         : Integer;
+        Czas_Spokoju  : Duration;
     begin
         accept Start
         do
             Random_Fury.Reset (G);
-            fury_trigger := 8;
-            fury         := 0;
-            Time := Duration(0.5);
+            poziom_furii := 8;
+            furia         := 0;
+            Czas_Spokoju := Duration(0.5);
         end Start;
         Put_Line ("Kelner wychodzi na zer");
         loop
-            delay Time;
-            fury := Random_Fury.Random (G);
-            if fury > fury_trigger then
+            delay Czas_Spokoju;
+            furia := Random_Fury.Random (G);
+            if furia > poziom_furii then
                 B.Quarrel_In_Storage;
             end if;
         end loop;
@@ -93,7 +93,7 @@ procedure Simulation is
         Producer_Type_Number : Integer;
         Product_Number       : Integer;
         Production           : Integer;
-        Random_Time          : Duration;
+        Czas_Produkcji          : Duration;
     begin
         accept Start (Danie : in Typ_Kucharza; Czas_Gotowania : in Integer)
         do
@@ -107,8 +107,8 @@ procedure Simulation is
            (ESC & "[93m" & "P: Started producer of " &
             Nazwa_Dania (Producer_Type_Number) & ESC & "[0m");
         loop
-            Random_Time := Duration (Random_Production.Random (G));
-            delay Random_Time;
+            Czas_Produkcji := Duration (Random_Production.Random (G));
+            delay Czas_Produkcji;
             Put_Line
                (ESC & "[93m" & "P: Produced product " &
                 Nazwa_Dania (Producer_Type_Number) & " number " &
@@ -124,7 +124,7 @@ procedure Simulation is
                     Integer'Image (Product_Number) & ESC & "[0m");
                 Product_Number := Product_Number + 1;
             or
-                delay Random_Time;
+                delay Czas_Produkcji;
                 Put_Line
                    (ESC & "[93m" &
                     "P: TIMEOUT - Buffer not responding, lost " &
